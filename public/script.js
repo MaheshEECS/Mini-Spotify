@@ -3,6 +3,8 @@ const searchInput = document.getElementById('search-query');
 const resultsElement = document.getElementById('results');
 const loginButton = document.getElementById('login-button');
 const searchContainer = document.getElementById('search-container');
+const videoContainer = document.getElementById('video-container');
+const videoPlayer = document.getElementById('video-player');
 
 let currentAudio = null;
 let currentButton = null;
@@ -46,19 +48,27 @@ async function performSearch() {
     if (query) {
         try {
             showLoadingIndicator();
-            const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
-            if (!response.ok) {
-                if (response.status === 401) {
-                    // Unauthorized - token might be expired
+            const [spotifyResponse, youtubeResponse] = await Promise.all([
+                fetch(`/search?q=${encodeURIComponent(query)}`),
+                fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&key=AIzaSyAmb-ZGctON-uj0r0od4yKv6hZ6agpxir8`)
+            ]);
+
+            if (!spotifyResponse.ok) {
+                if (spotifyResponse.status === 401) {
                     showErrorMessage('Session expired. Please log in again.');
                     checkLoginStatus(); // Update UI to show login button
                     return;
                 }
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP error! status: ${spotifyResponse.status}`);
             }
-            const tracks = await response.json();
+
+            const tracks = await spotifyResponse.json();
             console.log('Fetched tracks:', tracks);
             renderResults(tracks);
+
+            const youtubeData = await youtubeResponse.json();
+            console.log('Fetched YouTube videos:', youtubeData);
+            renderYouTubeResults(youtubeData.items);
         } catch (error) {
             console.error('Error fetching search results:', error);
             showErrorMessage('Error fetching results. Please try again.');
@@ -105,6 +115,36 @@ function renderResults(tracks) {
     });
 
     resultsElement.appendChild(trackList);
+}
+
+function renderYouTubeResults(videos) {
+    const videoList = document.createElement('ul');
+    videoList.className = 'video-list';
+    videoList.setAttribute('aria-label', 'YouTube Search Results');
+
+    videos.forEach(video => {
+        const videoElement = document.createElement('li');
+        videoElement.className = 'video';
+        videoElement.innerHTML = `
+            <div class="video-container">
+                <strong>${video.snippet.title}</strong>
+                <button class="play-video-btn" data-video-id="${video.id.videoId}" aria-label="Play ${video.snippet.title}">▶️</button>
+            </div>
+        `;
+        videoList.appendChild(videoElement);
+
+        const playVideoButton = videoElement.querySelector('.play-video-btn');
+        playVideoButton.addEventListener('click', () => {
+            playYouTubeVideo(video.id.videoId);
+        });
+    });
+
+    resultsElement.appendChild(videoList);
+}
+
+function playYouTubeVideo(videoId) {
+    videoPlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    videoContainer.style.display = 'block';
 }
 
 function handlePlayButtonClick(button, previewUrl, trackName) {
