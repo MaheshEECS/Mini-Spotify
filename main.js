@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000; // Allow PORT to be configurable via environment variable
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
@@ -35,6 +35,8 @@ app.get('/login', (req, res) => {
 // Callback route
 app.get('/callback', async (req, res) => {
     const code = req.query.code;
+    console.log('Authorization Code:', code);
+
     if (!code) {
         return res.status(400).json({ error: 'Authorization code is missing' });
     }
@@ -55,26 +57,37 @@ app.get('/callback', async (req, res) => {
 
         if (!response.ok) {
             const errorBody = await response.text();
+            console.log('Error Response Body:', errorBody);
             throw new Error(`Failed to obtain access token: ${errorBody}`);
         }
 
         const data = await response.json();
+        console.log('Response Data:', data);
+
+        if (!data.access_token) {
+            throw new Error('Access token is missing from the response.');
+        }
+
+        // Set the access token as an HTTP-only cookie
         res.cookie('access_token', data.access_token, { 
-            httpOnly: false,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Use secure in production
             maxAge: 3600000, // 1 hour
-            path: '/',
-            sameSite: 'strict'
+            sameSite: 'lax'
         });
 
-        res.send(`
-            <script>
-            document.cookie = "access_token_set=true;path=/;max-age=3600;";
-            window.location.href = '/';
-            </script>
-        `);
+        // Redirect to home
+        res.redirect('/');
     } catch (error) {
+        console.error('Error during callback:', error);
         res.status(500).json({ error: 'Internal server error', details: error.message });
     }
+});
+
+// Check authentication status
+app.get('/check-auth', (req, res) => {
+    const accessToken = req.cookies.access_token;
+    res.json({ isLoggedIn: !!accessToken });
 });
 
 // Search route
@@ -82,7 +95,12 @@ app.get('/search', async (req, res) => {
     const query = req.query.q;
     const accessToken = req.cookies.access_token;
 
+    console.log('All Cookies:', req.cookies);
+    console.log('Access Token:', accessToken);
+    console.log('Search Query:', query);
+
     if (!accessToken) {
+        console.error('Access token is missing in the search request.');
         return res.status(401).json({ error: 'Access token is missing. Please log in again.' });
     }
 
@@ -106,6 +124,7 @@ app.get('/search', async (req, res) => {
             res.json({ message: 'No results found.' });
         }
     } catch (error) {
+        console.error('Error during search:', error);
         res.status(500).json({ error: error.message });
     }
 });
