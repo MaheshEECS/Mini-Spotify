@@ -4,90 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spotify Mini Player with YouTube</title>
-    <link rel="stylesheet" href="/styles.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        #search-container {
-            margin-bottom: 20px;
-        }
-
-        .results-container {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 1000px; /* Limit the max width */
-            margin-top: 20px;
-        }
-
-        #results {
-            flex: 1;
-            margin-right: 20px; /* Space between results and video */
-        }
-
-        #video-container {
-            flex: 1; /* Make the video container take up equal space */
-            display: none;
-        }
-
-        iframe {
-            width: 100%;
-            height: 315px; /* Set height of iframe */
-            border: none;
-        }
-
-        .track-list, .video-list {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        .track, .video {
-            margin: 10px 0;
-        }
-
-        .track-container, .video-container {
-            display: flex;
-            align-items: center;
-        }
-
-        .album-cover {
-            width: 50px; /* Set album cover size */
-            height: 50px; /* Set album cover size */
-            margin-right: 10px; /* Space between cover and text */
-        }
-
-        .error-message {
-            color: red;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Spotify Mini Player with YouTube</h1>
-    
-    <button id="login-button">Login to Spotify</button>
-    
-    <div id="search-container" style="display: none;">
-        <label for="search-query">Search for a song or video:</label>
-        <input type="text" id="search-query" placeholder="Enter song title, artist, or video title">
-        <button id="search-button">Search</button>
-    </div>
-    
-    <div class="results-container">
-        <div id="results" aria-live="polite"></div>
-        
-        <div id="video-container">
-            <h2>Playing Video</h2>
-            <iframe id="video-player" allowfullscreen></iframe>
-        </div>
-    </div>
-
-    <script src="/script.js"></script>
+    <header>
+        <h1>Spotify Mini Player with YouTube Integration</h1>
+        <button id="login-button">Login</button>
+    </header>
+    <main>
+        <section id="search-container">
+            <div>
+                <input type="text" id="search-query" placeholder="Search Spotify...">
+                <button id="search-button">Search</button>
+            </div>
+            <div>
+                <input type="text" id="youtube-query" placeholder="Search YouTube...">
+                <button id="youtube-search-button">Search</button>
+            </div>
+        </section>
+        <section id="spotify-results" aria-live="polite"></section>
+        <section id="youtube-results" aria-live="polite"></section>
+        <section id="video-container" style="display: none;">
+            <iframe id="video-player" width="560" height="315" frameborder="0" allowfullscreen></iframe>
+        </section>
+        <section id="search-history-container">
+            <h2>Search History</h2>
+            <ul id="search-history"></ul>
+            <button id="clear-all-history">Clear All History</button>
+        </section>
+    </main>
+    <script src="script.js"></script>
 </body>
 </html>

@@ -1,32 +1,50 @@
 const searchButton = document.getElementById('search-button');
+const youtubeSearchButton = document.getElementById('youtube-search-button');
 const searchInput = document.getElementById('search-query');
-const resultsElement = document.getElementById('results');
+const youtubeInput = document.getElementById('youtube-query');
+const spotifyResults = document.getElementById('spotify-results');
+const youtubeResults = document.getElementById('youtube-results');
 const loginButton = document.getElementById('login-button');
 const searchContainer = document.getElementById('search-container');
 const videoContainer = document.getElementById('video-container');
 const videoPlayer = document.getElementById('video-player');
+const searchHistory = document.getElementById('search-history');
+const clearAllHistoryButton = document.getElementById('clear-all-history');
+
+const YOUTUBE_API_KEY = 'AIzaSyAmb-ZGctON-uj0r0od4yKv6hZ6agpxir8';
 
 let currentAudio = null;
 let currentButton = null;
 
-searchButton.addEventListener('click', performSearch);
+// Event Listeners
+searchButton.addEventListener('click', () => performSearch('spotify'));
+youtubeSearchButton.addEventListener('click', () => performSearch('youtube'));
 searchInput.addEventListener('keypress', (event) => {
     if (event.key === 'Enter') {
-        performSearch();
+        performSearch('spotify');
     }
 });
-
+youtubeInput.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+        performSearch('youtube');
+    }
+});
 loginButton.addEventListener('click', () => {
     window.location.href = '/login';
 });
+clearAllHistoryButton.addEventListener('click', clearSearchHistory);
 
-// Check login status on page load
-document.addEventListener('DOMContentLoaded', checkLoginStatus);
+document.addEventListener('DOMContentLoaded', () => {
+    checkLoginStatus();
+    loadSearchHistory();
+});
 
+// Check login status
 function checkLoginStatus() {
     fetch('/check-auth')
         .then(response => response.json())
         .then(data => {
+            console.log('Auth status:', data);
             if (data.isLoggedIn) {
                 loginButton.style.display = 'none';
                 searchContainer.style.display = 'block';
@@ -41,47 +59,63 @@ function checkLoginStatus() {
         });
 }
 
-async function performSearch() {
-    const query = searchInput.value.trim();
-    console.log('Search query:', query);
+// Perform search based on type
+async function performSearch(type) {
+    const query = type === 'spotify' ? searchInput.value.trim() : youtubeInput.value.trim();
+    console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} search query:`, query);
 
     if (query) {
         try {
-            showLoadingIndicator();
-            const [spotifyResponse, youtubeResponse] = await Promise.all([
-                fetch(`/search?q=${encodeURIComponent(query)}`),
-                fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&key=AIzaSyAmb-ZGctON-uj0r0od4yKv6hZ6agpxir8`)
-            ]);
+            showLoadingIndicator(type);
+            let results;
 
-            if (!spotifyResponse.ok) {
-                if (spotifyResponse.status === 401) {
-                    showErrorMessage('Session expired. Please log in again.');
-                    checkLoginStatus(); // Update UI to show login button
-                    return;
-                }
-                throw new Error(`HTTP error! status: ${spotifyResponse.status}`);
+            if (type === 'spotify') {
+                results = await fetchSpotifyResults(query);
+                renderSpotifyResults(results);
+            } else {
+                results = await fetchYouTubeResults(query);
+                renderYouTubeResults(results.items);
             }
-
-            const tracks = await spotifyResponse.json();
-            console.log('Fetched tracks:', tracks);
-            renderResults(tracks);
-
-            const youtubeData = await youtubeResponse.json();
-            console.log('Fetched YouTube videos:', youtubeData);
-            renderYouTubeResults(youtubeData.items);
+            addToSearchHistory(type, query);
         } catch (error) {
-            console.error('Error fetching search results:', error);
-            showErrorMessage('Error fetching results. Please try again.');
+            console.error(`Error fetching ${type} search results:`, error);
+            showErrorMessage(`Error fetching ${type} results. Please try again.`);
         } finally {
-            hideLoadingIndicator();
+            hideLoadingIndicator(type);
         }
     } else {
         showErrorMessage('Please enter a search term.');
     }
 }
 
-function renderResults(tracks) {
-    resultsElement.innerHTML = '';
+// Fetch Spotify results
+async function fetchSpotifyResults(query) {
+    const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+    console.log('Spotify search response:', response);
+    if (!response.ok) {
+        if (response.status === 401) {
+            showErrorMessage('Session expired. Please log in again.');
+            checkLoginStatus();
+            return [];
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+// Fetch YouTube results
+async function fetchYouTubeResults(query) {
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&key=${YOUTUBE_API_KEY}`);
+    console.log('YouTube search response:', response);
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+}
+
+// Render Spotify results
+function renderSpotifyResults(tracks) {
+    spotifyResults.innerHTML = '<h2>Spotify Results</h2>';
     console.log('Rendering results for tracks:', tracks);
 
     if (!tracks || !Array.isArray(tracks) || tracks.length === 0) {
@@ -91,7 +125,7 @@ function renderResults(tracks) {
 
     const trackList = document.createElement('ul');
     trackList.className = 'track-list';
-    trackList.setAttribute('aria-label', 'Search Results');
+    trackList.setAttribute('aria-label', 'Spotify Search Results');
 
     tracks.forEach(track => {
         const trackElement = document.createElement('li');
@@ -114,21 +148,33 @@ function renderResults(tracks) {
         });
     });
 
-    resultsElement.appendChild(trackList);
+    spotifyResults.appendChild(trackList);
 }
 
+// Render YouTube results
 function renderYouTubeResults(videos) {
+    youtubeResults.innerHTML = '<h2>YouTube Results</h2>';
     const videoList = document.createElement('ul');
     videoList.className = 'video-list';
     videoList.setAttribute('aria-label', 'YouTube Search Results');
+
+    if (!videos || videos.length === 0) {
+        showErrorMessage('No YouTube videos found. Please try another search term.');
+        return;
+    }
 
     videos.forEach(video => {
         const videoElement = document.createElement('li');
         videoElement.className = 'video';
         videoElement.innerHTML = `
             <div class="video-container">
-                <strong>${video.snippet.title}</strong>
+                <img src="${video.snippet.thumbnails.default.url}" 
+                     alt="${video.snippet.title} Thumbnail" class="video-thumbnail" />
                 <button class="play-video-btn" data-video-id="${video.id.videoId}" aria-label="Play ${video.snippet.title}">▶️</button>
+            </div>
+            <div class="video-info">
+                <strong>${video.snippet.title}</strong>
+                <p>${video.snippet.channelTitle}</p>
             </div>
         `;
         videoList.appendChild(videoElement);
@@ -139,14 +185,18 @@ function renderYouTubeResults(videos) {
         });
     });
 
-    resultsElement.appendChild(videoList);
+    youtubeResults.appendChild(videoList);
 }
 
+// Play YouTube video
 function playYouTubeVideo(videoId) {
+    console.log('Playing YouTube video:', videoId);
     videoPlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
     videoContainer.style.display = 'block';
+    videoContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// Handle play button click
 function handlePlayButtonClick(button, previewUrl, trackName) {
     console.log('Clicked play for preview URL:', previewUrl);
 
@@ -170,7 +220,19 @@ function handlePlayButtonClick(button, previewUrl, trackName) {
         button.setAttribute('aria-label', `Play ${trackName}`);
     } else {
         const audio = new Audio(previewUrl);
-        audio.play();
+        audio.onerror = (error) => {
+            console.error('Error playing audio:', error);
+            alert('Error playing audio. Please try again.');
+        };
+        audio.onplay = () => console.log('Audio started playing');
+        audio.onpause = () => console.log('Audio paused');
+        audio.onended = () => console.log('Audio playback ended');
+
+        audio.play().catch(error => {
+            console.error('Error playing audio:', error);
+            alert('Error playing audio. Please try again.');
+        });
+
         currentAudio = audio;
         currentButton = button;
         button.textContent = '⏸️';
@@ -185,20 +247,55 @@ function handlePlayButtonClick(button, previewUrl, trackName) {
     }
 }
 
-function showLoadingIndicator() {
+// Show loading indicator
+function showLoadingIndicator(type) {
     const loadingIndicator = document.createElement('div');
-    loadingIndicator.id = 'loading-indicator';
+    loadingIndicator.id = `${type}-loading-indicator`;
     loadingIndicator.textContent = 'Loading...';
-    resultsElement.appendChild(loadingIndicator);
+    loadingIndicator.className = 'loading-indicator';
+    type === 'spotify' ? spotifyResults.appendChild(loadingIndicator) : youtubeResults.appendChild(loadingIndicator);
 }
 
-function hideLoadingIndicator() {
-    const loadingIndicator = document.getElementById('loading-indicator');
+// Hide loading indicator
+function hideLoadingIndicator(type) {
+    const loadingIndicator = document.getElementById(`${type}-loading-indicator`);
     if (loadingIndicator) {
         loadingIndicator.remove();
     }
 }
 
+// Show error message
 function showErrorMessage(message) {
-    resultsElement.innerHTML = `<p class="error-message">${message}</p>`;
+    alert(message);
+}
+
+// Add to search history
+function addToSearchHistory(type, query) {
+    const historyItem = document.createElement('li');
+    historyItem.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)}: ${query}`;
+    searchHistory.appendChild(historyItem);
+    saveSearchHistory();
+}
+
+// Load search history
+function loadSearchHistory() {
+    const history = JSON.parse(localStorage.getItem('searchHistory')) || [];
+    searchHistory.innerHTML = '';
+    history.forEach(item => {
+        const historyItem = document.createElement('li');
+        historyItem.textContent = item;
+        searchHistory.appendChild(historyItem);
+    });
+}
+
+// Clear search history
+function clearSearchHistory() {
+    localStorage.removeItem('searchHistory');
+    searchHistory.innerHTML = '';
+}
+
+// Save search history
+function saveSearchHistory() {
+    const items = Array.from(searchHistory.children).map(item => item.textContent);
+    localStorage.setItem('searchHistory', JSON.stringify(items));
 }

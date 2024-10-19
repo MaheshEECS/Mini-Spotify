@@ -24,6 +24,9 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI;
 
+// In-memory search history
+let searchHistory = [];
+
 // Authorization URL
 const AUTH_URL = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=user-read-private user-read-email`;
 
@@ -118,7 +121,10 @@ app.get('/search', async (req, res) => {
         }
 
         const data = await response.json();
+
+        // Add query to search history
         if (data.tracks.items.length > 0) {
+            searchHistory.push(query);
             res.json(data.tracks.items);
         } else {
             res.json({ message: 'No results found.' });
@@ -127,6 +133,24 @@ app.get('/search', async (req, res) => {
         console.error('Error during search:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+// View search history
+app.get('/history', (req, res) => {
+    res.json(searchHistory);
+});
+
+// Clear entire search history
+app.delete('/history', (req, res) => {
+    searchHistory = [];
+    res.json({ message: 'Search history cleared.' });
+});
+
+// Clear specific search history item
+app.delete('/history/:query', (req, res) => {
+    const queryToDelete = req.params.query;
+    searchHistory = searchHistory.filter(query => query !== queryToDelete);
+    res.json({ message: `Search history item "${queryToDelete}" cleared.` });
 });
 
 // Home route
