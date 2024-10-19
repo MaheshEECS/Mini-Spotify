@@ -1,3 +1,30 @@
+// ... (previous code remains the same)
+
+const scrollToTopButton = document.getElementById('scroll-to-top');
+
+// ... (other event listeners)
+
+scrollToTopButton.addEventListener('click', scrollToTop);
+
+// ... (previous functions remain the same)
+
+// Scroll to top function
+function scrollToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+// Show/hide scroll-to-top button based on scroll position
+window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+        scrollToTopButton.style.display = 'flex';
+    } else {
+        scrollToTopButton.style.display = 'none';
+    }
+});
+
 const searchButton = document.getElementById('search-button');
 const youtubeSearchButton = document.getElementById('youtube-search-button');
 const searchInput = document.getElementById('search-query');
@@ -72,9 +99,11 @@ async function performSearch(type) {
             if (type === 'spotify') {
                 results = await fetchSpotifyResults(query);
                 renderSpotifyResults(results);
+                spotifyResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
                 results = await fetchYouTubeResults(query);
                 renderYouTubeResults(results.items);
+                youtubeResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             addToSearchHistory(type, query);
         } catch (error) {
@@ -229,8 +258,8 @@ function handlePlayButtonClick(button, previewUrl, trackName) {
         audio.onended = () => console.log('Audio playback ended');
 
         audio.play().catch(error => {
-            console.error('Error playing audio:', error);
-            alert('Error playing audio. Please try again.');
+            console.error('Playback error:', error);
+            alert('Playback error. Please try again.');
         });
 
         currentAudio = audio;
@@ -239,28 +268,40 @@ function handlePlayButtonClick(button, previewUrl, trackName) {
         button.setAttribute('aria-label', `Pause ${trackName}`);
 
         audio.addEventListener('ended', () => {
-            button.textContent = '▶️';
-            button.setAttribute('aria-label', `Play ${trackName}`);
             currentAudio = null;
             currentButton = null;
+            button.textContent = '▶️';
+            button.setAttribute('aria-label', `Play ${trackName}`);
         });
     }
 }
 
 // Show loading indicator
 function showLoadingIndicator(type) {
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.id = `${type}-loading-indicator`;
-    loadingIndicator.textContent = 'Loading...';
-    loadingIndicator.className = 'loading-indicator';
-    type === 'spotify' ? spotifyResults.appendChild(loadingIndicator) : youtubeResults.appendChild(loadingIndicator);
+    const loadingMessage = document.createElement('p');
+    loadingMessage.className = 'loading';
+    loadingMessage.textContent = `Loading ${type} results...`;
+    if (type === 'spotify') {
+        spotifyResults.innerHTML = '';
+        spotifyResults.appendChild(loadingMessage);
+    } else {
+        youtubeResults.innerHTML = '';
+        youtubeResults.appendChild(loadingMessage);
+    }
 }
 
 // Hide loading indicator
 function hideLoadingIndicator(type) {
-    const loadingIndicator = document.getElementById(`${type}-loading-indicator`);
-    if (loadingIndicator) {
-        loadingIndicator.remove();
+    if (type === 'spotify') {
+        const loadingMessage = spotifyResults.querySelector('.loading');
+        if (loadingMessage) {
+            spotifyResults.removeChild(loadingMessage);
+        }
+    } else {
+        const loadingMessage = youtubeResults.querySelector('.loading');
+        if (loadingMessage) {
+            youtubeResults.removeChild(loadingMessage);
+        }
     }
 }
 
@@ -271,61 +312,47 @@ function showErrorMessage(message) {
 
 // Add to search history
 function addToSearchHistory(type, query) {
-    const historyItem = document.createElement('li');
-    historyItem.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)}: ${query}`;
-    searchHistory.appendChild(historyItem);
-    saveSearchHistory();
+    let history = JSON.parse(localStorage.getItem('searchHistory')) || {};
+    if (!history[type]) {
+        history[type] = [];
+    }
+    history[type].push(query);
+    localStorage.setItem('searchHistory', JSON.stringify(history));
+    loadSearchHistory();
 }
 
 // Load search history
 function loadSearchHistory() {
-    const history = JSON.parse(localStorage.getItem('searchHistory')) || [];
     searchHistory.innerHTML = '';
-    history.forEach(item => {
-        const historyItem = document.createElement('li');
-        historyItem.textContent = item;
-        searchHistory.appendChild(historyItem);
-    });
-}
+    let history = JSON.parse(localStorage.getItem('searchHistory')) || {};
 
-async function performSearch(type) {
-    const query = type === 'spotify' ? searchInput.value.trim() : youtubeInput.value.trim();
-    console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} search query:`, query);
+    for (const type in history) {
+        const typeHeader = document.createElement('h3');
+        typeHeader.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Search History`;
+        searchHistory.appendChild(typeHeader);
 
-    if (query) {
-        try {
-            showLoadingIndicator(type);
-            let results;
+        const typeList = document.createElement('ul');
+        history[type].forEach(query => {
+            const queryItem = document.createElement('li');
+            queryItem.textContent = query;
+            typeList.appendChild(queryItem);
+        });
 
-            if (type === 'spotify') {
-                results = await fetchSpotifyResults(query);
-                renderSpotifyResults(results);
-                spotifyResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } else {
-                results = await fetchYouTubeResults(query);
-                renderYouTubeResults(results.items);
-                youtubeResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            addToSearchHistory(type, query);
-        } catch (error) {
-            console.error(`Error fetching ${type} search results:`, error);
-            showErrorMessage(`Error fetching ${type} results. Please try again.`);
-        } finally {
-            hideLoadingIndicator(type);
-        }
-    } else {
-        showErrorMessage('Please enter a search term.');
+        searchHistory.appendChild(typeList);
     }
 }
 
 // Clear search history
 function clearSearchHistory() {
     localStorage.removeItem('searchHistory');
-    searchHistory.innerHTML = '';
+    loadSearchHistory();
 }
 
-// Save search history
-function saveSearchHistory() {
-    const items = Array.from(searchHistory.children).map(item => item.textContent);
-    localStorage.setItem('searchHistory', JSON.stringify(items));
+// Close video player
+function closeVideoPlayer() {
+    videoContainer.style.display = 'none';
+    videoPlayer.src = '';
 }
+
+// Event listener for closing video player
+videoPlayer.addEventListener('ended', closeVideoPlayer);
