@@ -288,6 +288,36 @@ function loadSearchHistory() {
     });
 }
 
+async function performSearch(type) {
+    const query = type === 'spotify' ? searchInput.value.trim() : youtubeInput.value.trim();
+    console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} search query:`, query);
+
+    if (query) {
+        try {
+            showLoadingIndicator(type);
+            let results;
+
+            if (type === 'spotify') {
+                results = await fetchSpotifyResults(query);
+                renderSpotifyResults(results);
+                spotifyResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                results = await fetchYouTubeResults(query);
+                renderYouTubeResults(results.items);
+                youtubeResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            addToSearchHistory(type, query);
+        } catch (error) {
+            console.error(`Error fetching ${type} search results:`, error);
+            showErrorMessage(`Error fetching ${type} results. Please try again.`);
+        } finally {
+            hideLoadingIndicator(type);
+        }
+    } else {
+        showErrorMessage('Please enter a search term.');
+    }
+}
+
 // Clear search history
 function clearSearchHistory() {
     localStorage.removeItem('searchHistory');

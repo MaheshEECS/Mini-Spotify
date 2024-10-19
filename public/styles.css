@@ -1,3 +1,7 @@
+html {
+    scroll-behavior: smooth;
+}
+
 body {
     font-family: Arial, sans-serif;
     background-color: #121212;
@@ -22,6 +26,12 @@ h1, h2 {
 
 #search-container {
     margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+#search-container > div {
+    width: 48%;
 }
 
 input[type="text"] {
@@ -29,10 +39,17 @@ input[type="text"] {
     border: none;
     border-radius: 5px;
     margin-right: 10px;
+    width: calc(100% - 100px);
+}
+
+#results-container {
+    display: flex;
+    justify-content: space-between;
 }
 
 #spotify-results, #youtube-results {
     width: 48%;
+    min-height: 400px; /* Adjust as needed */
 }
 
 .track-list, .video-list {
@@ -78,12 +95,12 @@ input[type="text"] {
 }
 
 #video-container {
-    display: none;
     margin-top: 20px;
 }
 
 #video-player {
     width: 100%;
+    max-width: 560px;
     height: 315px;
     border: none;
 }
@@ -101,11 +118,7 @@ input[type="text"] {
     margin-top: 20px;
 }
 
-#history-list {
-    margin: 0;
-}
-
-#history-list li {
+#search-history li {
     background-color: #282828;
     color: white;
     padding: 10px;
@@ -115,20 +128,11 @@ input[type="text"] {
     cursor: pointer;
 }
 
-#history-list li:hover {
+#search-history li:hover {
     background-color: #1DB954;
 }
 
 .loading-indicator {
     margin-top: 20px;
     color: #1DB954;
-}
-
-.play-video-btn {
-    background-color: #1DB954;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    cursor: pointer;
-    border-radius: 5px;
 }
